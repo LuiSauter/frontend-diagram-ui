@@ -10,7 +10,7 @@ export enum PrivateRoutes {
 
   // workspaces
   WORKSPACE = '/workspace/:id',
-
+  WORKSPACE_SHEET = '/workspace/:id/:projectId/:sheetId',
 
   SETTINGS = '/configuracion',
   // users

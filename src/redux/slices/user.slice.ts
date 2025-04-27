@@ -1,4 +1,4 @@
-import { type User } from '@/modules/users/models/user.model'
+import { User } from '@/modules/dashboard/models/workspace.model'
 import { createSlice } from '@reduxjs/toolkit'
 
 const UserEmptyState: User = {} as User

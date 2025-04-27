@@ -1,10 +1,11 @@
 import { Outlet, useLocation } from 'react-router-dom'
 
 import Header from './components/header'
-import MainPage from './components/main-page'
 import Aside from './components/aside'
 import { useSidebar } from '@/context/sidebarContext'
 import { Toaster } from '@/components/ui/sonner'
+import { Suspense } from 'react'
+import Loading from '@/components/shared/loading'
 
 const Dashboard = () => {
   const { isContract } = useSidebar()
@@ -21,9 +22,17 @@ const Dashboard = () => {
         <Header />
         <div className='flex flex-row w-full h-[calc(100dvh-56px)] lg:h-[calc(100dvh-60px)] relative overflow-hidden bg-light-bg-secondary dark:bg-dark-bg-primary'>
           {/* <Aside /> */}
-          <MainPage>
+          {/* <MainPage> */}
+          <Suspense
+            fallback={
+              <div className='grid place-content-center place-items-center min-h-[calc(100dvh-55px-54px)] lg:min-h-[calc(100dvh-63px-54px)] text-action text-light-action dark:text-dark-action'>
+                <Loading />
+              </div>
+            }
+          >
             <Outlet />
-          </MainPage>
+          </Suspense>
+          {/* </MainPage> */}
           <Toaster richColors />
         </div>
       </div>

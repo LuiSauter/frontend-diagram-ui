@@ -1,4 +1,4 @@
-import { convertObjectToFormData, fetchData } from "@/utils"
+import { convertObjectToFormData, fetchData } from '@/utils'
 
 export interface ApiResponse<T = unknown> {
   statusCode?: number
@@ -7,7 +7,6 @@ export interface ApiResponse<T = unknown> {
   data?: T
   countData?: number
 }
-
 
 const getAllResource = async <T>(url: string): Promise<ApiResponse<T[]>> => {
   const options: RequestInit = { method: 'GET' }

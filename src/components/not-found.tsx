@@ -1,6 +1,8 @@
+import MainPage from '@/layout/components/main-page'
+
 function NotFound(): JSX.Element {
   return (
-    <div>Página no encontrada</div>
+    <MainPage>Página no encontrada</MainPage>
   )
 }
 

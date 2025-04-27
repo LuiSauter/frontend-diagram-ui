@@ -7,6 +7,7 @@ const DashboardPage = lazy(() => import('@modules/dashboard'))
 // const SettingPage = lazy(() => import('@modules/settings/pages/setting'))
 const NotFound = lazy(() => import('@/components/not-found'))
 const WorkspacePage = lazy(() => import('@modules/dashboard/pages/workspace'))
+const SheetPage = lazy(() => import('@modules/dashboard/pages/sheet-page'))
 
 export const PrivateAllRoutes: Route[] = [
   {
@@ -22,6 +23,11 @@ export const PrivateAllRoutes: Route[] = [
   {
     path: PrivateRoutes.WORKSPACE,
     element: createElement(WorkspacePage),
+    permissions: [] as PERMISSION[]
+  },
+  {
+    path: PrivateRoutes.WORKSPACE_SHEET,
+    element: createElement(SheetPage),
     permissions: [] as PERMISSION[]
   },
   // {

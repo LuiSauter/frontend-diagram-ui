@@ -44,3 +44,48 @@
     --chart-5: 340 75% 55%;
   }
 }
+
+.resize-handle {
+  @apply absolute w-2 h-2 bg-red-500 border border-white rounded-full;
+  z-index: 10;
+}
+
+.resize-handle-n {
+  @apply top-0 left-1/2 -translate-y-1/2 -translate-x-1/2 cursor-ns-resize;
+}
+
+.resize-handle-e {
+  @apply right-0 top-1/2 translate-x-1/2 -translate-y-1/2 cursor-ew-resize;
+}
+
+.resize-handle-s {
+  @apply bottom-0 left-1/2 translate-y-1/2 -translate-x-1/2 cursor-ns-resize;
+}
+
+.resize-handle-w {
+  @apply left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize;
+}
+
+.resize-handle-nw {
+  @apply top-0 left-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize;
+}
+
+.resize-handle-ne {
+  @apply top-0 right-0 translate-x-1/2 -translate-y-1/2 cursor-nesw-resize;
+}
+
+.resize-handle-se {
+  @apply bottom-0 right-0 translate-x-1/2 translate-y-1/2 cursor-nwse-resize;
+}
+
+.resize-handle-sw {
+  @apply bottom-0 left-0 -translate-x-1/2 translate-y-1/2 cursor-nesw-resize;
+}
+
+.selected-element {
+  @apply ring-2 ring-blue-500 ring-offset-2;
+}
+
+.component-drag-preview {
+  @apply pointer-events-none fixed z-50;
+}
