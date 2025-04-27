@@ -1,23 +1,27 @@
 import React, { useState, useRef, useEffect, createElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Badge } from '@/components/ui/badge'
 import { ZoomIn, ZoomOut, MousePointer, Users, Hand, Trash2 } from 'lucide-react'
-import { type CanvasElement } from '../pages/sheet-page'
+import { ELEMENTS_WITH_CHILDREN, findElementInTreeWithPath, type CanvasElement } from '../pages/sheet-page'
+import { useSelector } from 'react-redux'
+import { type RootState } from '@/redux/store'
+import { socket } from '@/config/socket'
+import { useParams } from 'react-router-dom'
+import { useGetResource } from '@/hooks/useApiResource'
 
 interface CanvasProps {
   canvasElements: any[]
   selectedElement: string | null
   onSelectElement: (id: string | null) => void
-  onDropComponent: (component: any, position: { x: number, y: number }) => void
+  onDropComponent: (component: any, position: { x: number, y: number }, parentId: string) => void
   onMoveElement: (elementId: string, newPosition: { x: number, y: number }) => void
   onResizeElement: (elementId: string, newSize: { width: number, height: number }) => void
   onElementDragStart: (elementId: string) => void
   onElementDragEnd: () => void
   onElementDelete: (elementId: string) => void
-  collaborators?: Array<{ id: string, name: string, color: string, position?: { x: number, y: number } }>
+  // collaborators?: Array<{ id: string, name: string, color: string, position?: { x: number, y: number } }>
 }
-
+// let collaborators: any[] = []
 export function Canvas({
   canvasElements,
   selectedElement,
@@ -27,8 +31,8 @@ export function Canvas({
   onResizeElement,
   onElementDragStart,
   onElementDragEnd,
-  onElementDelete,
-  collaborators = []
+  onElementDelete
+  // collaborators = []
 }: CanvasProps) {
   const [zoom, setZoom] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
@@ -38,7 +42,13 @@ export function Canvas({
   const [resizing, setResizing] = useState<{ elementId: string, handle: string } | null>(null)
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 })
   const canvasRef = useRef<HTMLDivElement>(null)
-
+  // const { createResource: updateCursor } = useCreateResource({ endpoint: '/api/workspace/update-cursor' })
+  const user = useSelector((state: RootState) => state.user)
+  const { sheetId } = useParams()
+  const { resource: sheet, isLoading } = useGetResource<any>({ endpoint: `/api/workspace/sheet/${sheetId}` })
+  const [collaborators, setCollaborators] = useState<any>([])
+  // const { collaborators } = useSelector((state: RootState) => state.workspace)
+  // console.log(isLoading, sheet?.colaboration_session?.session_participants?.length)
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey) {
       e.preventDefault()
@@ -54,7 +64,87 @@ export function Canvas({
     }
   }
 
+  let subs = false
+  useEffect(() => {
+    if (!subs) {
+      if (sheet?.colaboration_session?.session_participants.length > 0) {
+        setCollaborators(sheet?.colaboration_session?.session_participants)
+      }
+    }
+    return () => {
+      subs = true
+    }
+  }, [!isLoading])
+
+  let subscribe = true
+  useEffect(() => {
+    // void mutate()
+    if (subscribe) {
+      if (sheet?.colaboration_session?.session_participants.length > 0) {
+        setCollaborators(sheet?.colaboration_session?.session_participants)
+      }
+    }
+    return () => {
+      subscribe = false
+    }
+  }, [sheet?.colaboration_session?.session_participants])
+
+  useEffect(() => {
+    sheet && socket.on(`cursor/${sheet.id}`, (data: any) => {
+      const newCollaborators = collaborators.filter((col: any) => col.is_active).map((col: any) => {
+        if (col.user.id === data.user.id) {
+          return {
+            ...col,
+            cursor_x: data.cursor_x,
+            cursor_y: data.cursor_y
+          }
+        }
+        return col
+      })
+      setCollaborators(newCollaborators)
+    })
+    return () => {
+      sheet && socket.off(`cursor/${sheet.id}`)
+    }
+  }, [socket, collaborators.length > 0, sheet])
+
+  useEffect(() => {
+    sheet && socket.on(`sheet/${sheet.id}`, (data: any) => {
+      setCollaborators(data.colaboration_session?.session_participants)
+    })
+    sheet && socket.on(`cursor/${sheet.id}`, (data: any) => {
+      const newCollaborators = collaborators.filter((col: any) => col.is_active).map((col: any) => {
+        if (col.user.id === data.user.id) {
+          return {
+            ...col,
+            cursor_x: data.cursor_x,
+            cursor_y: data.cursor_y
+          }
+        }
+        return col
+      })
+      setCollaborators(newCollaborators)
+    })
+    return () => {
+      sheet && socket.off(`sheet/${sheet.id}`)
+      sheet && socket.off(`cursor/${sheet.id}`)
+    }
+  }, [socket, sheet])
+
   const handleMouseMove = (e: React.MouseEvent) => {
+    const canvasRect = canvasRef.current?.getBoundingClientRect()
+    if (!canvasRect) return
+    const x = (e.clientX - canvasRect.left - offset.x) / zoom
+    const y = (e.clientY - canvasRect.top - offset.y) / zoom
+
+    const sessionUser = sheet?.colaboration_session?.session_participants.find((col: any) => col.user.id === user.id)
+    socket.emit('updateCursor', {
+      ...sessionUser,
+      cursor_x: x,
+      cursor_y: y,
+      sheetId
+    })
+
     if (isDragging && activeTool === 'pan') {
       const dx = e.clientX - dragStart.x
       const dy = e.clientY - dragStart.y
@@ -71,12 +161,6 @@ export function Canvas({
 
       const element = canvasElements.find(el => el.id === resizing.elementId)
       if (!element?.style.width || !element.style.height) return
-      // console.log({
-      //   resizing,
-      //   element,
-      //   resizeStart
-      // })
-
       let newWidth = resizeStart.width
       let newHeight = resizeStart.height
       const newPosition: { x: number, y: number } = { ...element.position }
@@ -121,7 +205,6 @@ export function Canvas({
         onMoveElement(resizing.elementId, newPosition)
       }
 
-      // console.log({ newPosition, newWidth, newHeight })
       onResizeElement(resizing.elementId, { width: newWidth, height: newHeight })
     }
   }
@@ -144,22 +227,36 @@ export function Canvas({
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
-
     const component = e.dataTransfer.getData('componentId')
     if (!component) return
+    let compoenentParse = JSON.parse(component)
+    const parentElementId = e.target as HTMLDivElement
+    let elementId
+    if (compoenentParse.sendRoot) {
+      const removeSendRoot = JSON.parse(component)
+      const { sendRoot, lastId, parentId, ...rest } = removeSendRoot
+      compoenentParse = rest
+      elementId = lastId
+      if (lastId === parentElementId.id) {
+        // onElementDelete(lastId as string)
+      } else {
+        onElementDelete(lastId as string)
+      }
+      if (parentElementId.id === '') {
+        onElementDelete(lastId as string)
+      }
+    }
 
-    // console.log(JSON.parse(component))
-
-    // Get canvas position and dimensions
     const canvasRect = canvasRef.current?.getBoundingClientRect()
     if (!canvasRect) return
 
-    // Calculate drop position relative to canvas, considering zoom and offset
     const x = (e.clientX - canvasRect.left - offset.x) / zoom
     const y = (e.clientY - canvasRect.top - offset.y) / zoom
+    if (parentElementId.id === elementId) {
+      return
+    }
 
-    // Call the provided callback with component and position
-    onDropComponent(JSON.parse(component), { x, y })
+    onDropComponent(compoenentParse, { x, y }, parentElementId.id)
   }
 
   const handleZoomIn = () => {
@@ -250,56 +347,185 @@ export function Canvas({
     }
   }
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      switch (e.key.toLowerCase()) {
-        case 'v':
-          setActiveTool('select')
-          break
-        case 'h':
-          setActiveTool('pan')
-          break
-        case 'delete':
-        case 'backspace':
-          if (selectedElement) {
-            onElementDelete(selectedElement)
-          }
-          break
-        default:
-          break
+  // useEffect(() => {
+  //   const handleKeyDown = (e: KeyboardEvent) => {
+  //     switch (e.key.toLowerCase()) {
+  //       case 'v':
+  //         setActiveTool('select')
+  //         break
+  //       case 'h':
+  //         setActiveTool('pan')
+  //         break
+  //       case 'delete':
+  //       case 'backspace':
+  //         if (selectedElement) {
+  //           onElementDelete(selectedElement)
+  //         }
+  //         break
+  //       default:
+  //         break
+  //     }
+  //   }
+
+  //   window.addEventListener('keydown', handleKeyDown)
+  //   return () => {
+  //     window.removeEventListener('keydown', handleKeyDown)
+  //   }
+  // }, [selectedElement, onElementDelete])
+
+  // const generateElement = (type: string, properties: any, children: React.ReactNode[] | React.ReactNode | string) => {
+  //   return createElement(type, properties, children)
+  // }
+  const generateElement = (
+    element: CanvasElement,
+    selectedElement: string | null,
+    onSelectElement: (id: string | null) => void,
+    activeTool: string,
+    handleElementMouseDown: (e: React.MouseEvent, elementId: string) => void,
+    handleResizeStart: (e: React.MouseEvent, elementId: string, handle: string) => void
+  ): React.ReactNode => {
+    const canAcceptChildren = ELEMENTS_WITH_CHILDREN.includes(element.type)
+    const baseProps: any = {
+      key: element.id,
+      id: element.id,
+      className: element.type === 'main'
+        ? `absolute component-hover hover:ring-2 hover:ring-sky-300 ${selectedElement === element.id ? 'ring-2 ring-sky-600' : ''}`
+        : `${element.position?.x > 0 ? 'absolute' : ''} component-hover hover:ring-2 hover:ring-sky-300 ${selectedElement === element.id ? 'ring-2 ring-sky-600' : ''
+        }`,
+      style: {
+        ...element.style,
+        width: element.style?.width
+          ? `${element.style.width}${element.style.widthUnit || 'px'}`
+          : 'auto',
+        height: element.style?.height
+          ? `${element.style.height}${element.style.heightUnit || 'px'}`
+          : 'auto',
+        left: `${element.position.x}px`,
+        top: `${element.position.y}px`
+        // opacity: element.isBeingDragged ? 0.7 : 1
+      },
+      ...element.properties,
+      onClick: (e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (activeTool === 'select') {
+          onSelectElement(element.id)
+        }
+      },
+      onMouseDown: (e: React.MouseEvent) => {
+        const ele = e.target as HTMLDivElement
+        const foundElement = findElementInTreeWithPath(canvasElements as CanvasElement[], ele.id)?.element ?? element
+        if (activeTool === 'select' && foundElement?.type === 'main') {
+          handleElementMouseDown(e, element.id)
+        }
+      },
+      draggable: activeTool === 'select' && element.type !== 'main',
+      onDragStart: (e: React.DragEvent) => {
+        const ele = e.target as HTMLDivElement
+        const foundElement = findElementInTreeWithPath(canvasElements as CanvasElement[], ele.id)?.element
+        if (foundElement?.type === 'main') return
+        e.dataTransfer.setData('componentId', JSON.stringify({
+          ...foundElement,
+          sendRoot: true,
+          lastId: foundElement?.id,
+          parentId: ele.id
+        }))
+        e.dataTransfer.effectAllowed = 'move'
+        onElementDragStart(element.id)
+      },
+      onDragEnd: () => {
+        onElementDragEnd()
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
+    if (canAcceptChildren) {
+      baseProps.onDragOver = (e: React.DragEvent) => { // esto es cuando se arrastra un elemento sobre otro
+        e.preventDefault()
+        e.currentTarget.classList.add('drop-target')
+        e.dataTransfer.dropEffect = 'move'
+      }
+
+      baseProps.onDragLeave = (e: React.DragEvent) => { // esto es cuando se sale el elemento arrastrado de otro
+        e.currentTarget.classList.remove('drop-target')
+      }
+
+      // baseProps.onDrop = (e: React.DragEvent) => { // esto es cuando se suelta el elemento arrastrado sobre otro
+      //   e.preventDefault()
+      //   e.currentTarget.classList.remove('drop-target')
+      //   if (element.type === 'main') return
+      //   const dataTransfer = e.dataTransfer.getData('element-id')
+      //   if (!dataTransfer) return
+      //   const ele = e.target as HTMLDivElement
+      //   const canvasRect = canvasRef.current?.getBoundingClientRect()
+
+      //   if (!canvasRect) return
+      //   const elementTransfer = JSON.parse(dataTransfer)
+
+      //   const x = (e.clientX - canvasRect.left - offset.x) / zoom
+      //   const y = (e.clientY - canvasRect.top - offset.y) / zoom
+
+      //   if (elementTransfer && elementTransfer.id !== element.id) {
+      //     const comp = {
+      //       children: elementTransfer.children,
+      //       element: elementTransfer.type,
+      //       id: elementTransfer.type,
+      //       name: elementTransfer.name,
+      //       preview: <></>,
+      //       properties: elementTransfer.properties,
+      //       style: elementTransfer.style
+      //     }
+      //     console.log(comp, ele.id)
+      //     // onElementDelete(elementTransfer.id as string)
+      //     // onDropComponent(comp, { x: 0, y: 0 }, ele.id)
+      //     // eliminar el elemento arrastrado
+      //   }
+      // }
     }
-  }, [selectedElement, onElementDelete])
 
-  // Simulate cursor movement for collaborators
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // This would be replaced by real-time updates from a server
-      collaborators.forEach((collaborator) => {
-        if (collaborator.position) {
-          const randomX = Math.random() * 10 - 5
-          const randomY = Math.random() * 10 - 5
+    let childrenContent: React.ReactNode[] | string | null = null
+    if (typeof element.children === 'string') {
+      childrenContent = element.children
+    } else {
+      childrenContent = element.children
+        ? element.children?.map((child: CanvasElement) => {
+          if (typeof child === 'string') {
+            return child
+          } else {
+            return generateElement(
+              child,
+              selectedElement,
+              onSelectElement,
+              activeTool,
+              handleElementMouseDown,
+              handleResizeStart
+            )
+          }
+        })
+        : null
+    }
 
-          collaborator.position.x += randomX
-          collaborator.position.y += randomY
+    if (element.type === 'main' && selectedElement === element.id) {
+      childrenContent = Array.isArray(childrenContent) ? childrenContent : []
 
-          // Keep within bounds
-          collaborator.position.x = Math.max(0, Math.min(800, collaborator.position.x))
-          collaborator.position.y = Math.max(0, Math.min(600, collaborator.position.y))
-        }
-      })
-    }, 2000)
+      childrenContent.push(
+        ...['n', 'e', 's', 'w', 'nw', 'ne', 'se', 'sw'].map((handle: string) => (
+          <div
+            key={handle}
+            className={`resize-handle resize-handle-${handle}`}
+            onMouseDown={(e) => { handleResizeStart(e, element.id, handle) }}
+          />
+        ))
+      )
+    }
 
-    return () => { clearInterval(interval) }
-  }, [collaborators])
+    if (element.type === 'main') {
+      childrenContent = Array.isArray(childrenContent) ? childrenContent : []
 
-  const generateElement = (type: string, properties: any, children: React.ReactNode[] | React.ReactNode | string) => {
-    return createElement(type, properties, children)
+      childrenContent.push(<span key={`${element.type}-${crypto.randomUUID()}`} className='absolute -top-8 text-gray-600 whitespace-nowrap select-none'>
+        {element.name} - {element.id.slice(element.id.length - 5)}
+      </span>)
+    }
+
+    return createElement(element.type, baseProps, childrenContent)
   }
 
   return (
@@ -312,7 +538,7 @@ export function Canvas({
               <Button
                 variant={activeTool === 'select' ? 'secondary' : 'outline'}
                 size="icon"
-                className="h-9 w-9 shadow-sm"
+                className={`h-9 w-9 shadow-sm backdrop-blur-sm bg-light-bg-secondary/50 dark:bg-dark-bg-secondary/50 ${activeTool === 'select' ? 'bg-light-bg-primary/75 dark:bg-dark-bg-primary/75 hover:dark:bg-dark-bg-primary/75' : ''}`}
                 onClick={() => { setActiveTool('select') }}
               >
                 <MousePointer className="h-4 w-4" />
@@ -328,7 +554,7 @@ export function Canvas({
               <Button
                 variant={activeTool === 'pan' ? 'secondary' : 'outline'}
                 size="icon"
-                className={'h-9 w-9 shadow-sm'}
+                className={`h-9 w-9 shadow-sm backdrop-blur-sm bg-light-bg-secondary/50 dark:bg-dark-bg-secondary/50 ${activeTool === 'pan' ? 'bg-light-bg-secondary/75 dark:bg-dark-bg-primary/75 hover:dark:bg-dark-bg-primary/75' : ''}`}
                 onClick={() => { setActiveTool('pan') }}
               >
                 <Hand className={`${activeTool === 'pan' ? 'text-white' : 'text-light-text-secondary dark:text-dark-text-secondary'} h-4 w-4`} />
@@ -387,30 +613,54 @@ export function Canvas({
 
       {/* Collaborators list */}
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-full py-1 px-3 flex items-center gap-2">
+        <div className="bg-white dark:bg-dark-bg-secondary shadow-sm rounded-full py-1 px-3 flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
-          <div className="flex -space-x-2">
-            {collaborators.map((collaborator) => (
+          {/* <div className="flex -space-x-2">
+            {collaborators?.map((collaborator: any) => (
               <Tooltip key={collaborator.id}>
                 <TooltipTrigger asChild>
-                  <div
-                    className="h-6 w-6 rounded-full text-xs flex items-center justify-center border-2 border-white dark:border-gray-800"
-                    style={{ backgroundColor: collaborator.color }}
-                  >
-                    {collaborator.name.charAt(0)}
-                  </div>
+                  <img
+                    src={collaborator.user.avatar_url}
+                    alt={collaborator.user.name}
+                    className={`w-8 h-8 rounded-full border-2 border-white dark:border-gray-800
+                      ${collaborator.user.id === user.id
+                        ? 'ring-2 ring-yellow-500 z-10'
+                        : collaborator.is_active ? 'ring-2 ring-sky-400' : 'opacity-50'}
+                      `}
+                    style={{ cursor: 'pointer' }}
+                    title={collaborator.user.name}
+                  />
                 </TooltipTrigger>
-                <TooltipContent>{collaborator.name}</TooltipContent>
+                <TooltipContent side='bottom'>{collaborator.user.name}</TooltipContent>
+              </Tooltip>
+            ))}
+          </div> */}
+          <div className="flex -space-x-1">
+            {collaborators?.filter((col: any) => col.is_active).map((collaborator: any) => (
+              <Tooltip key={collaborator.id}>
+                <TooltipTrigger asChild>
+                  <img
+                    src={collaborator.user.avatar_url}
+                    alt={collaborator.user.name}
+                    className={`w-8 h-8 rounded-full border-2 border-white dark:border-gray-800
+                      ${collaborator.user.id === user.id
+                        ? 'ring-2 ring-yellow-500 z-10'
+                        : collaborator.is_active ? 'ring-2 ring-sky-400' : 'opacity-50'}
+                        `}
+                    // title={collaborator.user.name}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side='bottom'>{collaborator.user.name}</TooltipContent>
               </Tooltip>
             ))}
           </div>
-          <Badge className="bg-green-500 text-white" variant="secondary">
-            {collaborators.length} en línea
-          </Badge>
+          {/* <Badge className="bg-green-500 text-white" variant="secondary"> */}
+          {/* {collaborators?.length} usuarios */}
+          {/* </Badge> */}
         </div>
       </div>
 
-      {/* Main canvas area */}
       <div
         className="flex-1 overflow-hidden"
         onWheel={handleWheel}
@@ -437,187 +687,56 @@ export function Canvas({
               height: '100%'
             }}
           >
-
-            {/* {generateElement('div', {
-              className: 'absolute component-hover',
-              style: {
-                left: '100px',
-                top: '100px'
-              }
-            }, generateElement('div', {
-              style: {
-                display: 'flex',
-                flexDirection: 'column'
-              }
-            }, [
-              generateElement('h1', { key: '1' }, 'hola a todos'),
-              generateElement('input', { key: '3' }, null),
-              generateElement('select', { key: '4' }, [generateElement('option', { key: '5' }, 'opcion 1'), generateElement('option', { key: '6' }, 'opcion 2')])
-            ]))} */}
-
-            {canvasElements.map((element: CanvasElement) => {
-              const children = element.children
-                ? typeof element.children[0] === 'string'
-                  ? element.children[0]
-                  : element.children.map((child) => generateElement(child.type, {
-                    key: child.id,
-                    id: child.id,
-                    style: {
-                      ...child.style, width: child.style?.width ? `${child.style.width}${child.style.widthUnit || 'px'}` : 'auto', height: child.style?.height ? `${child.style.height}${child.style.heightUnit || 'px'}` : 'auto'
-                    },
-                    className: `component-hover hover:ring-2 hover:ring-sky-300 ${selectedElement === child.id ? 'ring-2 ring-sky-600' : ''}`,
-                    onClick: (e: React.MouseEvent) => {
-                      e.stopPropagation()
-                      if (activeTool === 'select') {
-                        onSelectElement(child.id)
-                      }
-                    }
-                  }, child.children as null))
-                : null
-              return (
-                (
-                  element.type === 'main'
-                    ? generateElement(element.type, {
-                      key: element.id,
-                      id: element.id,
-                      className: `absolute component-hover hover:ring-2 hover:ring-sky-300 ${selectedElement === element.id ? 'ring-2 ring-sky-600' : ''}`,
-                      style: {
-                        ...element.style,
-                        width: element.style?.width ? `${element.style.width}${element.style.widthUnit || 'px'}` : 'auto',
-                        height: element.style?.height ? `${element.style.height}${element.style.heightUnit || 'px'}` : 'auto',
-                        left: `${element.position.x}px`,
-                        top: `${element.position.y}px`,
-                        opacity: element.isBeingDragged ? 0.7 : 1
-                      },
-                      ...element.properties,
-                      onClick: (e: React.MouseEvent) => {
-                        e.stopPropagation()
-                        if (activeTool === 'select') {
-                          onSelectElement(element.id)
-                        }
-                      },
-                      onMouseDown: (e: React.MouseEvent) => { handleElementMouseDown(e, element.id) }
-                    }, [element.children?.map((child) => generateElement(child.type, {
-                      key: child.id,
-                      id: child.id,
-                      style: {
-                        ...child.style,
-                        width: child.style?.width ? `${child.style.width}${child.style.widthUnit || 'px'}` : 'auto',
-                        height: child.style?.height ? `${child.style.height}${child.style.heightUnit || 'px'}` : 'auto'
-                      },
-                      className: `component-hover hover:ring-2 hover:ring-sky-300 ${selectedElement === child.id ? 'ring-2 ring-sky-600' : ''}`,
-                      onClick: (e: React.MouseEvent) => {
-                        e.stopPropagation()
-                        if (activeTool === 'select') {
-                          onSelectElement(child.id)
-                        }
-                      }
-                    }, [])),
-                    selectedElement === element.id && ['n', 'e', 's', 'w', 'nw', 'ne', 'se', 'sw'].map((handle: string) =>
-                      createElement('div', {
-                        key: handle,
-                        className: `resize-handle resize-handle-${handle}`,
-                        onMouseDown: (e: React.MouseEvent) => { handleResizeStart(e, element.id, handle) }
-                      })
-                    )
-                    ])
-                    // : elemento que no es main
-                    : generateElement(element.type, {
-                      key: element.id,
-                      id: element.id,
-                      className: `absolute component-hover hover:ring-2 hover:ring-sky-300 ${selectedElement === element.id ? 'ring-2 ring-sky-600' : ''}`,
-                      style: {
-                        ...element.style,
-                        width: element.style?.width ? `${element.style.width}${element.style.widthUnit || 'px'}` : 'auto',
-                        height: element.style?.height ? `${element.style.height}${element.style.heightUnit || 'px'}` : 'auto',
-                        left: `${element.position.x}px`,
-                        top: `${element.position.y}px`
-                      },
-                      ...element.properties,
-                      onClick: (e: React.MouseEvent) => {
-                        e.stopPropagation()
-                        if (activeTool === 'select') {
-                          onSelectElement(element.id)
-                        }
-                      }
-                    }, children)
-                )
+            {canvasElements.map((element: CanvasElement) =>
+              generateElement(
+                element,
+                selectedElement,
+                onSelectElement,
+                activeTool,
+                handleElementMouseDown,
+                handleResizeStart
               )
-            })}
+            )}
 
-            {/* Collaborator cursors */}
-            {/* {collaborators.map((collaborator) => (
-              collaborator.position && (
-                <div
-                  key={`cursor-${collaborator.id}`}
-                  className="absolute pointer-events-none z-10"
-                  style={{
-                    left: `${collaborator.position.x}px`,
-                    top: `${collaborator.position.y}px`
-                  }}
-                >
-                  <div className="relative">
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      style={{ color: collaborator.color }}
-                    >
-                      <path
-                        d="M5 2L19 16L12 16L5 23V2Z"
-                        fill="currentColor"
-                        stroke="white"
-                        strokeWidth="1"
-                      />
-                    </svg>
-                    <div
-                      className="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 px-2 py-0.5 rounded text-xs text-white whitespace-nowrap"
-                      style={{ backgroundColor: collaborator.color }}
-                    >
-                      {collaborator.name}
-                    </div>
+            {collaborators?.filter((col: any) => col.is_active).map((collaborator: any) => collaborator.user.id !== user.id && collaborator.cursor_x !== 0 && collaborator.cursor_y !== 0 && (
+              <div
+                key={`cursor-${collaborator.id}`}
+                className="absolute pointer-events-none z-10"
+                style={{
+                  left: `${collaborator.cursor_x}px`,
+                  top: `${collaborator.cursor_y}px`
+                  // left: `${500}px`,
+                  // top: `${500}px`
+                }}
+              >
+                <div className="relative">
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    // style={{ color: '#aaa' }}
+                    className='text-sky-900'
+                  >
+                    <path
+                      d="M5 2L19 16L12 16L5 23V2Z"
+                      fill="currentColor"
+                      stroke="white"
+                      strokeWidth="1"
+                    />
+                  </svg>
+                  <div
+                    className="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 px-2 py-0.5 rounded text-xs whitespace-nowrap text-sky-300 bg-sky-900/50"
+                  // style={{ backgroundColor: '#' }}
+                  >
+                    {collaborator.user.name}
                   </div>
                 </div>
-              )
-            ))} */}
+              </div>
+            ))}
           </div>
         </div>
       </div>
     </div >
   )
 }
-
-// <div
-//   key={element.id}
-//   className={`absolute component-hover ${selectedElement === element.id ? 'ring-2 ring-primary' : ''}`}
-//   style={{
-//     left: `${element.position.x}px`,
-//     top: `${element.position.y}px`,
-//     backgroundColor: element.properties?.backgroundColor || 'white',
-//     color: element.properties?.color || 'black',
-//     borderWidth: `${element.properties?.borderWidth || 0}px`,
-//     borderStyle: element.properties?.borderWidth ? 'solid' : 'none',
-//     borderColor: element.properties?.borderColor || '#cccccc',
-//     borderRadius: `${element.properties?.borderRadius || 0}px`,
-//     boxShadow: element.properties?.hasShadow ? `0 ${element.properties.shadowIntensity || 5}px ${element.properties.shadowIntensity * 2 || 10}px rgba(0,0,0,0.1)` : 'none',
-//     width: element.properties?.width ? `${element.properties.width}${element.properties.widthUnit || 'px'}` : 'auto',
-//     height: element.properties?.height ? `${element.properties.height}${element.properties.heightUnit || 'px'}` : 'auto',
-//     padding: element.properties?.padding || '8px',
-//     margin: element.properties?.margin || '0px',
-//     position: 'absolute',
-//     fontFamily: element.properties?.fontFamily || 'sans-serif',
-//     fontSize: `${element.properties?.fontSize || 16}px`,
-//     fontWeight: element.properties?.fontWeight || 'normal',
-//     textAlign: element.properties?.textAlign || 'left'
-//   }}
-//   onClick={(e) => {
-//     e.stopPropagation()
-//     if (activeTool === 'select') {
-//       onSelectElement(element.id as string)
-//     }
-//   }}
-// >
-//   {element.properties?.text || element.type}
-// </div>
-// <></>

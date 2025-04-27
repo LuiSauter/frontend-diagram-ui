@@ -5,6 +5,7 @@ export interface WorkSpaceState {
   workspace: WorkspaceItem
   projectOpen: string
   sheetOpen: string
+  collaborators?: any[]
 }
 
 const WorkSpaceEmptyState: WorkSpaceState = {
@@ -17,7 +18,8 @@ const WorkSpaceEmptyState: WorkSpaceState = {
     owner: undefined
   },
   projectOpen: '',
-  sheetOpen: ''
+  sheetOpen: '',
+  collaborators: []
 }
 
 export const workSpaceSlice = createSlice({
@@ -47,11 +49,28 @@ export const workSpaceSlice = createSlice({
     },
     setSheetOpen: (state, action) => {
       return { ...state, sheetOpen: action.payload }
+    },
+    setCollaborators: (state, action) => {
+      return { ...state, collaborators: action.payload }
     }
+    // updateCollaborators: (state, action) => {
+    //   return {
+    //     ...state,
+    //     collaborators: state.collaborators?.map((collaborator) => {
+    //       if (collaborator.id === action.payload.id) {
+    //         return {
+    //           ...collaborator,
+    //           ...action.payload
+    //         }
+    //       }
+    //       return collaborator
+    //     })
+    //   }
+    // }
   }
 })
 
 // Action creators are generated for each case reducer function
-export const { createWorkspace, updateWorkspace, resetWorkspace, setProjectOpen, setSheetOpen } = workSpaceSlice.actions
+export const { createWorkspace, updateWorkspace, resetWorkspace, setProjectOpen, setSheetOpen, setCollaborators } = workSpaceSlice.actions
 
 export default workSpaceSlice.reducer

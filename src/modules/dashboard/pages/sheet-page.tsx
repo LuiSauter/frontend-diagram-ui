@@ -3,10 +3,12 @@ import { useEffect, useState } from 'react'
 import { useDispatch } from 'react-redux'
 import { useParams } from 'react-router-dom'
 import { Canvas } from '../components/Canvas'
-import { toast } from 'sonner'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PropertiesPanel } from '../components/properties-panel'
+import { useCreateResource, useGetResource } from '@/hooks/useApiResource'
+import { socket } from '@/config/socket'
+// import { useGetResource } from '@/hooks/useApiResource'
 
 const MOCK_WORKSPACES = [
   {
@@ -37,6 +39,20 @@ const MOCK_WORKSPACES = [
     collaborators: 4,
     files: 15
   }
+]
+
+export const ELEMENTS_WITH_CHILDREN = [
+  'div', 'section', 'main', 'article', 'aside', 'header',
+  'footer', 'nav', 'ul', 'ol', 'li', 'form'
+  // 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'
+]
+
+export const ELEMENTS_WITHOUT_CHILDREN = [
+  'img', 'input', 'button', 'select', 'textarea', 'hr',
+  'br', 'link', 'meta', 'script', 'style',
+  'svg', 'canvas', 'video', 'audio', 'iframe',
+  'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'strong', 'em', 'b', 'i', 'u', 'mark', 'small'
 ]
 
 interface Collaborator {
@@ -162,21 +178,60 @@ export interface CanvasElement {
   name?: string
   position: { x: number, y: number }
   isBeingDragged?: boolean
+  preview?: React.ReactNode
   properties: Record<string, any>
   style: Record<string, any>
-  children?: CanvasElement[] | null
+  children?: CanvasElement[] | string
+}
+
+export const findElementInTreeWithPath = (
+  elements: CanvasElement[],
+  elementId: string,
+  path: string[] = []
+): { element: CanvasElement, path: string[] } | null => {
+  for (const element of elements) {
+    const currentPath = [...path, element.id]
+
+    if (element.id === elementId) {
+      return { element, path: currentPath }
+    }
+
+    if (element.children && Array.isArray(element.children)) {
+      if (element.children.length > 0 && typeof element.children[0] !== 'string') {
+        const found = findElementInTreeWithPath(element.children, elementId, currentPath)
+        if (found) {
+          return found
+        }
+      }
+    }
+  }
+  return null
 }
 
 const SheetPage = () => {
   const { sheetId, projectId } = useParams()
   const dispatch = useDispatch()
-  // const { workspace } = useSelector((state: RootState) => state.workspace)
   const [canvasElements, setCanvasElements] = useState<CanvasElement[]>([])
   const [workspace, setWorkspace] = useState<any>(null)
-  // const [selectedFile, setSelectedFile] = useState<any>(null)
   const [selectedElement, setSelectedElement] = useState<string | null>(null)
   const [codeExample, setCodeExample] = useState(initialCodeExample)
   const [_draggedElement, setDraggedElement] = useState<string | null>(null) // _ no se usa aun
+  const { resource: sheet } = useGetResource<any>({ endpoint: `/api/workspace/sheet/${sheetId}` })
+  const { createResource: saveVersion } = useCreateResource({ endpoint: `/api/workspace/sheet/${sheetId}/save-version` })
+
+  useEffect(() => {
+    if (sheet) {
+      const data = JSON.parse(String(sheet?.versions[0].data))
+      setCanvasElements(data.canvasElements as CanvasElement[])
+    }
+    sheet && socket.on(`sheet/${sheet.id}/version`, (data: any) => {
+      // setCollaborators(data.colaboration_session?.session_participants)
+      setCanvasElements(JSON.parse(String(data.versions[0].data)).canvasElements as CanvasElement[])
+    })
+    return () => {
+      sheet && socket.off(`sheet/${sheet.id}/version`)
+    }
+  }, [socket, sheet])
 
   useEffect(() => {
     dispatch(setSheetOpen(sheetId))
@@ -220,70 +275,182 @@ const SheetPage = () => {
   //   toast.success('Proyecto exportado como código Angular')
   // }
 
+  // Función recursiva para encontrar y modificar elementos
+  const updateElementInTree = (
+    elements: CanvasElement[],
+    elementId: string,
+    updater: (element: CanvasElement) => CanvasElement
+  ): CanvasElement[] => {
+    return elements.map(element => {
+      if (element.id === elementId) {
+        return updater(element)
+      }
+
+      if (element.children && Array.isArray(element.children) && element.children.length > 0) {
+        const isChildrenComponents = typeof element.children[0] !== 'string'
+
+        if (isChildrenComponents) {
+          return {
+            ...element,
+            children: updateElementInTree(element.children, elementId, updater)
+          }
+        }
+      }
+
+      return element
+    })
+  }
+
+  const deleteElementFromTree = (elements: CanvasElement[], elementId: string): CanvasElement[] => {
+    return elements
+      .filter(element => element.id !== elementId)
+      .map(element => {
+        if (element.children && Array.isArray(element.children) && element.children.length > 0) {
+          const isChildrenComponents = typeof element.children[0] !== 'string'
+
+          if (isChildrenComponents) {
+            return {
+              ...element,
+              children: deleteElementFromTree(element.children, elementId)
+            }
+          }
+        }
+        return element
+      })
+  }
+
   const handleSelectCanvasElement = (elementId: string | null) => {
     setSelectedElement(elementId)
   }
 
-  const handleDropComponent = (component: any, position: { x: number, y: number }) => {
-    const newElement: CanvasElement = {
-      id: `${component.id}-${Date.now()}`,
-      type: component.element,
-      position,
-      name: component.name,
-      properties: component.properties,
-      style: component.style,
-      isBeingDragged: false,
-      children: component.children
-        ? component.children.map((child: any) => {
-          if (typeof child === 'string') {
-            return child
-          }
-          // console.log(child)
-          return ({
-            id: `${child.id}-${Date.now()}`,
-            type: child.element,
-            name: child.name,
-            isBeingDragged: false,
-            position: { x: 0, y: 0 },
-            properties: child.properties,
-            style: child.style,
-            children: child.children as ['string'] | null
-          })
-        })
-        : null
+  const handleDropComponent = (
+    component: CanvasElement,
+    position: { x: number, y: number },
+    parentId: string
+  ) => {
+    const canAcceptChildren = (elements: CanvasElement[], targetId: string): boolean => {
+      for (const element of elements) {
+        if (element.id === targetId) {
+          return ELEMENTS_WITH_CHILDREN.includes(element.type)
+        }
+
+        if (element.children && Array.isArray(element.children)) {
+          const result = canAcceptChildren(element.children, targetId)
+          if (result) return true
+        }
+      }
+      return false
     }
 
-    setCanvasElements([...canvasElements, newElement])
-    setSelectedElement(newElement.id)
+    const effectiveParentId = parentId && canAcceptChildren(canvasElements, parentId)
+      ? parentId
+      : ''
 
+    const normalizeChildren = (children: CanvasElement[] | null): any => {
+      if (!children) return null
+
+      if (children.length > 0 && typeof children[0] === 'string') {
+        return children
+      }
+
+      return children.map(child => ({
+        id: `${child.type}-${Date.now()}`,
+        type: child.type,
+        name: child.name ?? '',
+        position: { x: 0, y: 0 },
+        properties: child.properties ?? {},
+        style: child.style ?? {},
+        children: normalizeChildren(child.children as CanvasElement[]),
+        isBeingDragged: false
+      }))
+    }
+
+    const newElement: CanvasElement = {
+      id: `${component.type}-${Date.now()}`,
+      type: component.type,
+      position: effectiveParentId ? { x: 0, y: 0 } : position,
+      name: component.name ?? '',
+      properties: component.properties ?? {},
+      style: component.style ?? {},
+      isBeingDragged: false,
+      children: normalizeChildren(component.children as CanvasElement[])
+    }
+
+    const addToParent = (
+      elements: CanvasElement[],
+      targetId: string,
+      elementToAdd: CanvasElement
+    ): CanvasElement[] => {
+      return elements.map(element => {
+        if (element.id === targetId) {
+          return {
+            ...element,
+            children: [
+              ...(Array.isArray(element.children) ? element.children : []),
+              elementToAdd
+            ] as CanvasElement[]
+          }
+        }
+
+        if (element.children &&
+          Array.isArray(element.children) &&
+          element.children.length > 0 &&
+          typeof element.children[0] !== 'string') {
+          return {
+            ...element,
+            children: addToParent(element.children, targetId, elementToAdd)
+          }
+        }
+
+        return element
+      })
+    }
+
+    if (effectiveParentId) {
+      setCanvasElements(prevElements => {
+        const updatedElements = addToParent(prevElements, effectiveParentId, newElement)
+        void saveVersion({ version: JSON.stringify(updatedElements) })
+        return updatedElements
+      })
+    } else {
+      setCanvasElements(prev => {
+        const newElements = [...prev, newElement]
+        void saveVersion({ version: JSON.stringify(newElements) })
+        return newElements
+      })
+    }
+    console.log('handleDropComponent')
+
+    setSelectedElement(newElement.id)
     updateCodeExample(newElement)
+
+    // toast.success(
+    //   effectiveParentId
+    //     ? `Componente agregado dentro de ${newElement.type}`
+    //     : 'Componente agregado al canvas'
+    // )
   }
 
   const handleMoveElement = (elementId: string, newPosition: { x: number, y: number }) => {
     setCanvasElements(elements =>
-      elements.map(element =>
-        element.id === elementId
-          ? { ...element, position: newPosition }
-          : element
-      )
+      updateElementInTree(elements, elementId, element => ({
+        ...element,
+        position: newPosition
+      }))
     )
+    // console.log('handleMoveElement') TODO: cuidado
   }
 
   const handleResizeElement = (elementId: string, newSize: { width: number, height: number }) => {
-    // console.log(elementId, newSize)
     setCanvasElements(elements =>
-      elements.map(element =>
-        element.id === elementId
-          ? {
-              ...element,
-              style: {
-                ...element.style,
-                width: newSize.width,
-                height: newSize.height
-              }
-            }
-          : element
-      )
+      updateElementInTree(elements, elementId, element => ({
+        ...element,
+        style: {
+          ...element.style,
+          width: newSize.width,
+          height: newSize.height
+        }
+      }))
     )
   }
 
@@ -294,16 +461,31 @@ const SheetPage = () => {
     })
   }
 
-  const handleUpdateElementProperties = (elementId: string, style: Record<string, any>) => {
-    setCanvasElements((elements) =>
-      elements.map((element) =>
-        element.id === elementId
-          ? { ...element, style: { ...element.style, ...style } }
-          : { ...element, children: element.children ? element.children.map((child) => child.id === elementId ? { ...child, style: { ...child.style, ...style } } : child) : null }
-      )
-    )
+  const handleUpdateElementProperties = (elementId: string, style: Record<string, any>, children: any) => {
+    setCanvasElements(elements => {
+      const updated = updateElementInTree(elements, elementId, element => ({ ...element, style: { ...element.style, ...style }, children }))
+      void saveVersion({ version: JSON.stringify(updated) })
+      return updated
+    })
 
-    const element = canvasElements.find(e => e.id === elementId)
+    console.log('handleUpdateElementProperties')
+
+    const findElementInTree = (elements: CanvasElement[]): CanvasElement | null => {
+      for (const element of elements) {
+        if (element.id === elementId) return element
+
+        if (element.children && Array.isArray(element.children) && element.children.length > 0) {
+          const isChildrenComponents = typeof element.children[0] !== 'string'
+          if (isChildrenComponents) {
+            const found = findElementInTree(element.children)
+            if (found) return found
+          }
+        }
+      }
+      return null
+    }
+
+    const element = findElementInTree(canvasElements)
     if (element) {
       updateCodeExample({ ...element, style: { ...element.style, ...style } })
     }
@@ -312,55 +494,90 @@ const SheetPage = () => {
   const handleElementDragStart = (elementId: string) => {
     setDraggedElement(elementId)
     setCanvasElements(elements =>
-      elements.map(element =>
-        element.id === elementId
-          ? { ...element, isBeingDragged: true }
-          : element
-      )
+      updateElementInTree(elements, elementId, element => ({
+        ...element,
+        isBeingDragged: true
+      }))
     )
+    // console.log('handleElementDragStart') TODO: cuidado
   }
 
   const handleElementDragEnd = () => {
     setDraggedElement(null)
-    setCanvasElements(elements =>
-      elements.map(element =>
-        element.isBeingDragged
-          ? { ...element, isBeingDragged: false }
-          : element
-      )
-    )
+    setCanvasElements(elements => {
+      const updated = elements.map(element => ({
+        ...element,
+        isBeingDragged: false,
+        children: element.children && Array.isArray(element.children) && typeof element.children[0] !== 'string'
+          ? (element.children).map((child: any) => ({ ...child, isBeingDragged: false }))
+          : element.children
+      }))
+      void saveVersion({ version: JSON.stringify(updated) })
+      return updated
+    })
+    console.log('handleElementDragEnd')
   }
 
   const handleElementDelete = (elementId: string) => {
-    setCanvasElements(elements =>
-      elements.map(element => {
-        if (element.children) {
-          return {
-            ...element,
-            children: element.children.filter(child => child.id !== elementId)
-          }
-        }
-        return element
-      })
-    )
-
+    setCanvasElements(elements => {
+      const updated = deleteElementFromTree(elements, elementId)
+      void saveVersion({ version: JSON.stringify(updated) })
+      return updated
+    })
+    console.log('handleElementDelete')
     if (selectedElement === elementId) {
       setSelectedElement(null)
     }
-    toast.info('Componente eliminado')
   }
 
-  const getSelectedElementData = () => {
+  const getSelectedElementData = (): any => {
     if (!selectedElement) return null
-    const element = canvasElements.find(e => e.id === selectedElement) ??
-      canvasElements.flatMap(e => e.children ?? []).find(e => e.id === selectedElement)
-    if (!element) return null
-    return {
-      id: element.id,
-      type: element.type,
-      style: element.style
+
+    const findElementInTree = (elements: CanvasElement[]): CanvasElement | null => {
+      for (const element of elements) {
+        if (element.id === selectedElement) return element
+
+        if (element.children && Array.isArray(element.children) && element.children.length > 0) {
+          const isChildrenComponents = typeof element.children[0] !== 'string'
+          if (isChildrenComponents) {
+            const found = findElementInTree(element.children)
+            if (found) return found
+          }
+        }
+      }
+      return null
     }
+
+    const element = findElementInTree(canvasElements)
+    return element
+      ? { id: element.id, type: element.type, style: element.style, properties: element.properties, children: element.children }
+      : null
   }
+
+  // crear un debounce para guardar canvasElements en saveVersion en base de datos
+  // const [debouncedCanvasElements, setDebouncedCanvasElements] = useState<CanvasElement[]>([])
+
+  // useEffect(() => {
+  //   const handler = setTimeout(() => {
+  //     setDebouncedCanvasElements(canvasElements)
+  //   }, 1000) // Adjust debounce delay as needed
+
+  //   return () => {
+  //     clearTimeout(handler)
+  //   }
+  // }, [canvasElements])
+
+  // useEffect(() => {
+  //   const saveCanvasElements = async () => {
+  //     if (debouncedCanvasElements.length > 0) {
+  //       // await saveVersion({ version: JSON.stringify(debouncedCanvasElements) })
+  //       // toast.success('Cambios guardados correctamente')
+  //       console.log(debouncedCanvasElements)
+  //     }
+  //   }
+
+  //   void saveCanvasElements()
+  // }, [debouncedCanvasElements])
 
   return (
     <div className='w-full h-full flex flex-col'>
@@ -376,7 +593,7 @@ const SheetPage = () => {
             onElementDragStart={handleElementDragStart}
             onElementDragEnd={handleElementDragEnd}
             onElementDelete={handleElementDelete}
-            collaborators={mockCollaborators}
+          // collaborators={resource ? resource.colaboration_session.session_participants : []}
           />
         </ResizablePanel>
 

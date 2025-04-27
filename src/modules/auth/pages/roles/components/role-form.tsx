@@ -229,7 +229,6 @@ const RoleFormPage = ({ title, buttonText }: IFormProps): JSX.Element => {
                                       <Switch
                                         checked={form.watch('permissions').includes(permission?.id ?? '')}
                                         onCheckedChange={(e) => {
-                                          console.log(e, permission?.id ?? '')
                                           if (e) {
                                             const permissions = form.getValues('permissions')
                                             permissions.push(permission?.id ?? '')

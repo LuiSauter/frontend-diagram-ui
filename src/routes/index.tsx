@@ -5,10 +5,12 @@ import { lazy } from 'react'
 import { PrivateRoutes, PublicRoutes } from '@/models/routes.model'
 
 const LoginPage = lazy(() => import('@modules/auth/pages/login'))
+const AccepInvitation = lazy(() => import('@modules/auth/pages/accept-invitation/accept-invitation'))
 
 const Routes = () => {
   return (
     <BaseRoutes>
+      <Route path='/aceptar-invitacion' element={<AccepInvitation />} />
       {/* Rutas públicas, pero si ya está autenticado ocultar dichas rutas */}
       <Route element={<ProtectedRoute redirectTo={PrivateRoutes.DASHBOARD} />}>
         <Route path={PublicRoutes.LOGIN} element={<LoginPage />} />

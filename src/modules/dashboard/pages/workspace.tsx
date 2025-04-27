@@ -1,4 +1,3 @@
-import { useParams } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { useSelector } from 'react-redux'
 import { type RootState } from '@/redux/store'
@@ -6,9 +5,7 @@ import { File, Plus } from 'lucide-react'
 import MainPage from '@/layout/components/main-page'
 
 const WorkspacePage = () => {
-  const params = useParams()
   const { workspace } = useSelector((state: RootState) => state.workspace)
-  console.log(params.id)
   return (
     <MainPage>
       <Helmet>

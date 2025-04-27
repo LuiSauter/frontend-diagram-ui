@@ -89,3 +89,45 @@
 .component-drag-preview {
   @apply pointer-events-none fixed z-50;
 }
+
+.component {
+  border: 1px dashed transparent;
+  transition: all 0.2s;
+}
+
+.component:hover {
+  border-color: #93c5fd;
+}
+
+.component.selected {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px #bfdbfe;
+}
+
+.drop-target {
+  border-color: #10b981 !important;
+  background-color: #d1fae5;
+}
+
+.main-container {
+  border: 1px dashed #d1d5db;
+  background-color: rgba(243, 244, 246, 0.5);
+}
+
+.resize-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background-color: #3b82f6;
+  border-radius: 50%;
+  z-index: 10;
+}
+
+.resize-handle-n { top: -4px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+.resize-handle-e { top: 50%; right: -4px; transform: translateY(-50%); cursor: e-resize; }
+.resize-handle-s { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+.resize-handle-w { top: 50%; left: -4px; transform: translateY(-50%); cursor: w-resize; }
+.resize-handle-nw { top: -4px; left: -4px; cursor: nw-resize; }
+.resize-handle-ne { top: -4px; right: -4px; cursor: ne-resize; }
+.resize-handle-se { bottom: -4px; right: -4px; cursor: se-resize; }
+.resize-handle-sw { bottom: -4px; left: -4px; cursor: sw-resize; }

@@ -9,24 +9,26 @@ import {
   Settings,
   Table
 } from 'lucide-react'
+import { type CanvasElement } from '../pages/sheet-page'
 
 interface ComponentGroup {
   id: string
   name: string
   icon: React.ReactNode
-  components: Component[]
+  components: CanvasElement[]
 }
 
-interface Component {
-  id: string
-  name: string
-  description?: string
-  element: string
-  preview?: React.ReactNode
-  style?: Record<string, any>
-  properties?: Record<string, any>
-  children?: Component[] | string[]
-}
+// export interface Component {
+//   id: string
+//   name: string
+//   type: string
+//   preview?: React.ReactNode
+//   position?: { x: number, y: number }
+//   isBeingDragged?: boolean
+//   style?: Record<string, any>
+//   properties?: Record<string, any>
+//   children?: Component[] | string[]
+// }
 
 const componentGroups: ComponentGroup[] = [
   {
@@ -35,11 +37,11 @@ const componentGroups: ComponentGroup[] = [
     icon: <Layout className="h-4 w-4" />,
     components: [
       {
-        id: 'main-container-flex',
-        name: 'Contenedor principal - Flex',
-        element: 'main',
+        id: 'main-container',
+        name: 'Contenedor principal',
+        type: 'main',
         preview: (
-          <div className="flex h-10 w-10 bg-blue-100 dark:bg-blue-900 rounded border border-blue-300 dark:border-blue-700">
+          <div className="flex h-10 w-full border border-dashed bg-transparent rounded border-blue-300 dark:border-sky-500">
           </div>
         ),
         style: {
@@ -57,63 +59,83 @@ const componentGroups: ComponentGroup[] = [
         children: [{
           id: 'flex-container',
           name: 'Contenedor flex',
-          element: 'div',
+          type: 'section',
           style: {
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
-            padding: '16px',
+            // gap: '8px',
+            // padding: '16px',
+            justifyContent: 'flex-start',
+            alignItems: 'flex-start',
             width: 100,
-            height: 50,
+            height: 100,
             widthUnit: '%',
             heightUnit: '%',
             backgroundColor: '#ffffff',
             zIndex: 2
           },
           properties: {},
-          children: []
-        }]
+          children: [],
+          position: {
+            x: 0,
+            y: 0
+          }
+        }],
+        position: {
+          x: 0,
+          y: 0
+        }
       },
       {
-        id: 'main-container-grid',
-        name: 'Contenedor principal - Grid',
-        element: 'main',
+        id: 'container-grid',
+        name: 'Contenedor grid',
+        type: 'section',
         preview: (
-          <div className="grid grid-cols-2 gap-1 w-10 h-10 bg-green-100 dark:bg-green-900 rounded border border-green-300 dark:border-green-700">
+          <div className="grid grid-cols-2 gap-1 w-full h-10 bg-green-100 dark:bg-green-900 rounded border border-green-300 dark:border-green-700">
             <div className="bg-white h-full w-full rounded dark:bg-dark-bg-secondary"></div>
             <div className="bg-white h-full w-full rounded dark:bg-dark-bg-secondary"></div>
           </div>
+        ),
+        style: {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          justifyContent: 'flex-start',
+          alignItems: 'flex-start',
+          backgroundColor: '#ffffff',
+          width: 300,
+          height: 500,
+          widthUnit: 'px',
+          heightUnit: 'px',
+          zIndex: 2
+        },
+        properties: {},
+        children: [],
+        position: {
+          x: 0,
+          y: 0
+        }
+      },
+      {
+        id: 'section',
+        name: 'Sección',
+        type: 'section',
+        preview: (
+          <section className="h-10 w-full bg-gray-100 dark:bg-gray-900 rounded border border-gray-300 dark:border-gray-700">
+          </section>
         ),
         style: {
           backgroundColor: '#ffffff',
           width: 300,
           height: 500,
           widthUnit: 'px',
-          heightUnit: 'px',
-          zIndex: 1
+          heightUnit: 'px'
         },
         properties: {},
-        children: [{
-          id: 'grid-container',
-          name: 'Contenedor grid',
-          element: 'div',
-          style: {
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '8px',
-            padding: '16px',
-            backgroundColor: '#ffffff',
-            borderWidth: '1px',
-            borderRadius: '12px',
-            width: 100,
-            height: 100,
-            widthUnit: '%',
-            heightUnit: '%',
-            zIndex: 2
-          },
-          properties: {},
-          children: []
-        }]
+        children: [],
+        position: {
+          x: 0,
+          y: 0
+        }
       }
     ]
   },
@@ -125,7 +147,7 @@ const componentGroups: ComponentGroup[] = [
       {
         id: 'button',
         name: 'Button',
-        element: 'button',
+        type: 'button',
         preview: (
           <button className="px-4 py-2 w-full bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm">
             Botón
@@ -144,12 +166,16 @@ const componentGroups: ComponentGroup[] = [
         properties: {
           type: 'button'
         },
-        children: ['Botón']
+        children: 'Botón',
+        position: {
+          x: 0,
+          y: 0
+        }
       },
       {
         id: 'input',
         name: 'Input',
-        element: 'input',
+        type: 'input',
         preview: (
           <input className="border p-2 rounded w-full text-sm" placeholder="Escribir..." />
         ),
@@ -168,12 +194,16 @@ const componentGroups: ComponentGroup[] = [
           placeholder: 'Escribir...',
           disabled: false,
           defaultValue: 'Hola mundo'
+        },
+        position: {
+          x: 0,
+          y: 0
         }
       },
       {
         id: 'checkbox',
         name: 'Checkbox',
-        element: 'input',
+        type: 'input',
         preview: (
           <div className="flex items-center gap-2">
             <input type="checkbox" className="h-4 w-4" />
@@ -184,12 +214,16 @@ const componentGroups: ComponentGroup[] = [
         properties: {
           type: 'checkbox',
           defaultChecked: true
+        },
+        position: {
+          x: 0,
+          y: 0
         }
       },
       {
         id: 'progress',
         name: 'Progress',
-        element: 'progress',
+        type: 'progress',
         preview: (
           <progress className="w-full h-2" value="50" max="100"></progress>
         ),
@@ -202,12 +236,16 @@ const componentGroups: ComponentGroup[] = [
         properties: {
           value: 50,
           max: 100
+        },
+        position: {
+          x: 0,
+          y: 0
         }
       },
       {
         id: 'select',
         name: 'Select',
-        element: 'select',
+        type: 'select',
         preview: (
           <select className="border p-2 rounded text-sm w-full">
             <option>Opción 1</option>
@@ -229,25 +267,39 @@ const componentGroups: ComponentGroup[] = [
           {
             id: 'option-1',
             name: 'Option 1',
-            element: 'option',
+            type: 'option',
             properties: {},
             preview: <option>Opción 1</option>,
-            children: ['Opción 1']
+            children: 'Opción 1',
+            style: {},
+            position: {
+              x: 0,
+              y: 0
+            }
           },
           {
             id: 'option-2',
             name: 'Option 2',
-            element: 'option',
+            type: 'option',
             properties: {},
             preview: <option>Opción 2</option>,
-            children: ['Opción 2']
+            children: 'Opción 2',
+            style: {},
+            position: {
+              x: 0,
+              y: 0
+            }
           }
-        ]
+        ],
+        position: {
+          x: 0,
+          y: 0
+        }
       },
       {
         id: 'radio',
         name: 'Radio Button',
-        element: 'input',
+        type: 'input',
         preview: (
           <div className="flex items-center gap-2">
             <input type="radio" className="h-4 w-4" />
@@ -259,18 +311,21 @@ const componentGroups: ComponentGroup[] = [
           type: 'radio',
           name: 'radio-group',
           disabled: false
+        },
+        position: {
+          x: 0,
+          y: 0
         }
       },
       {
         id: 'image',
         name: 'Image',
-        element: 'img',
+        type: 'img',
         preview: (
           <img
             className="rounded w-full h-16 object-cover"
             src="https://cdn.pixabay.com/photo/2015/12/22/04/00/photo-1103594_1280.png"
-            alt="Imagen"
-          />
+            alt="Imagen" />
         ),
         style: {
           width: 200,
@@ -283,12 +338,16 @@ const componentGroups: ComponentGroup[] = [
         properties: {
           src: 'https://cdn.pixabay.com/photo/2015/12/22/04/00/photo-1103594_1280.png',
           alt: 'Imagen de ejemplo'
+        },
+        position: {
+          x: 0,
+          y: 0
         }
       },
       {
         id: 'calendar',
         name: 'Calendar',
-        element: 'input',
+        type: 'input',
         preview: (
           <input type="date" className="border p-2 rounded text-sm w-full" />
         ),
@@ -304,6 +363,10 @@ const componentGroups: ComponentGroup[] = [
         },
         properties: {
           type: 'date'
+        },
+        position: {
+          x: 0,
+          y: 0
         }
       }
     ]
@@ -316,32 +379,40 @@ const componentGroups: ComponentGroup[] = [
       {
         id: 'heading-h1',
         name: 'Heading H1',
-        element: 'h1',
+        type: 'h1',
         preview: <h1 className="text-3xl font-bold">Título H1</h1>,
         style: {
           fontSize: '2rem',
           fontWeight: 'bold',
-          marginBottom: '16px'
+          color: '#000000'
         },
         properties: {},
-        children: ['Título H1']
+        children: 'Título H1',
+        position: {
+          x: 0,
+          y: 0
+        }
       },
       {
         id: 'paragraph',
         name: 'Paragraph',
-        element: 'p',
+        type: 'p',
         preview: <p className="text-base">Este es un párrafo de texto normal.</p>,
         style: {
           fontSize: '1rem',
-          marginBottom: '12px'
+          color: '#000000'
         },
         properties: {},
-        children: ['Este es un párrafo de texto normal.']
+        children: 'Este es un párrafo de texto normal.',
+        position: {
+          x: 0,
+          y: 0
+        }
       },
       {
         id: 'badge',
         name: 'Badge',
-        element: 'span',
+        type: 'span',
         preview: (
           <span className="inline-block px-2 py-1 text-xs bg-blue-200 text-blue-800 rounded-full">
             Badge
@@ -355,22 +426,30 @@ const componentGroups: ComponentGroup[] = [
           borderRadius: '16px'
         },
         properties: {},
-        children: ['Badge']
+        children: 'Badge',
+        position: {
+          x: 0,
+          y: 0
+        }
       },
       {
         id: 'label',
         name: 'Label',
-        element: 'label',
+        type: 'label',
         preview: <label className="text-sm font-medium">Etiqueta</label>,
         style: {
           fontSize: '0.875rem',
           fontWeight: '500',
-          marginBottom: '8px'
+          color: '#000000'
         },
         properties: {
           htmlFor: ''
         },
-        children: ['Etiqueta']
+        children: 'Etiqueta',
+        position: {
+          x: 0,
+          y: 0
+        }
       }
     ]
   },
@@ -382,7 +461,7 @@ const componentGroups: ComponentGroup[] = [
       {
         id: 'table',
         name: 'Table',
-        element: 'table',
+        type: 'table',
         preview: (
           <table className="min-w-full border border-gray-300 text-sm">
             <thead>
@@ -409,7 +488,7 @@ const componentGroups: ComponentGroup[] = [
           {
             id: 'thead',
             name: 'Table Head',
-            element: 'thead',
+            type: 'thead',
             preview: (
               <thead>
                 <tr>
@@ -417,12 +496,18 @@ const componentGroups: ComponentGroup[] = [
                   <th>Encabezado 2</th>
                 </tr>
               </thead>
-            )
+            ),
+            style: {},
+            properties: {},
+            position: {
+              x: 0,
+              y: 0
+            }
           },
           {
             id: 'tbody',
             name: 'Table Body',
-            element: 'tbody',
+            type: 'tbody',
             preview: (
               <tbody>
                 <tr>
@@ -430,14 +515,24 @@ const componentGroups: ComponentGroup[] = [
                   <td>Dato 2</td>
                 </tr>
               </tbody>
-            )
+            ),
+            style: {},
+            properties: {},
+            position: {
+              x: 0,
+              y: 0
+            }
           }
-        ]
+        ],
+        position: {
+          x: 0,
+          y: 0
+        }
       },
       {
         id: 'unordered-list',
         name: 'Unordered List (UL)',
-        element: 'ul',
+        type: 'ul',
         preview: (
           <ul className="list-disc pl-5 space-y-1 text-sm">
             <li>Elemento 1</li>
@@ -454,21 +549,37 @@ const componentGroups: ComponentGroup[] = [
           {
             id: 'list-item-ul-1',
             name: 'List Item',
-            element: 'li',
-            preview: <li>Elemento 1</li>
+            type: 'li',
+            preview: <li>Elemento 1</li>,
+            style: {},
+            properties: {},
+            position: {
+              x: 0,
+              y: 0
+            }
           },
           {
             id: 'list-item-ul-2',
             name: 'List Item',
-            element: 'li',
-            preview: <li>Elemento 2</li>
+            type: 'li',
+            preview: <li>Elemento 2</li>,
+            style: {},
+            properties: {},
+            position: {
+              x: 0,
+              y: 0
+            }
           }
-        ]
+        ],
+        position: {
+          x: 0,
+          y: 0
+        }
       },
       {
         id: 'ordered-list',
         name: 'Ordered List (OL)',
-        element: 'ol',
+        type: 'ol',
         preview: (
           <ol className="list-decimal pl-5 space-y-1 text-sm">
             <li>Elemento 1</li>
@@ -485,30 +596,46 @@ const componentGroups: ComponentGroup[] = [
           {
             id: 'list-item-ol-1',
             name: 'List Item',
-            element: 'li',
-            preview: <li>Elemento 1</li>
+            type: 'li',
+            preview: <li>Elemento 1</li>,
+            style: {},
+            properties: {},
+            position: {
+              x: 0,
+              y: 0
+            }
           },
           {
             id: 'list-item-ol-2',
             name: 'List Item',
-            element: 'li',
-            preview: <li>Elemento 2</li>
+            type: 'li',
+            preview: <li>Elemento 2</li>,
+            style: {},
+            properties: {},
+            position: {
+              x: 0,
+              y: 0
+            }
           }
-        ]
+        ],
+        position: {
+          x: 0,
+          y: 0
+        }
       }
     ]
   }
 ]
 
 interface ComponentPanelProps {
-  onDragComponent: (component: Component) => void
+  onDragComponent: (component: CanvasElement) => void
 }
 
 export function ComponentPanel({ onDragComponent }: ComponentPanelProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('layout')
 
-  const handleDragStart = (e: React.DragEvent, component: Component) => {
+  const handleDragStart = (e: React.DragEvent, component: CanvasElement) => {
     e.dataTransfer.setData('componentId', JSON.stringify(component))
     if (onDragComponent) {
       onDragComponent(component)
@@ -520,9 +647,7 @@ export function ComponentPanel({ onDragComponent }: ComponentPanelProps) {
       ...group,
       components: group.components.filter(
         (component) =>
-          component.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          component.description?.toLowerCase()
-            .includes(searchQuery.toLowerCase())
+          component.name?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     }))
     .filter((group) => group.components.length > 0)

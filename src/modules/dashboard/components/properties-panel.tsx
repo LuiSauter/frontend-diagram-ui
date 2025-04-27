@@ -6,17 +6,19 @@ import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Paintbrush, Box, MousePointer, Type, Layers } from 'lucide-react'
+import { Paintbrush, Box, MousePointer, Type } from 'lucide-react'
 
 interface SelectedComponent {
   id: string
   type: string
   style: Record<string, any>
+  children?: string
+  properties?: Record<string, any>
 }
 
 interface PropertiesPanelProps {
   selectedComponent: SelectedComponent | null
-  onUpdateProperties: (id: string, properties: Record<string, any>) => void
+  onUpdateProperties: (id: string, properties: Record<string, any>, children: any) => void
   onDeselectComponent: () => void
 }
 
@@ -39,10 +41,11 @@ export function PropertiesPanel({
   }
 
   const handlePropertyChange = (property: string, value: any) => {
-    onUpdateProperties(selectedComponent.id, {
-      ...selectedComponent.style,
-      [property]: value
-    })
+    onUpdateProperties(selectedComponent.id, { ...selectedComponent.style, [property]: value }, selectedComponent.children)
+  }
+
+  const handleChildrenChange = (value: string) => {
+    onUpdateProperties(selectedComponent.id, { ...selectedComponent }, value)
   }
 
   return (
@@ -58,7 +61,7 @@ export function PropertiesPanel({
       </div>
 
       <Tabs defaultValue="style">
-        <TabsList className="grid grid-cols-5 bg-transparent">
+        <TabsList className="grid grid-cols-4 bg-transparent">
           <TabsTrigger value="style" className="data-[state=active]:bg-background data-[state=active]:shadow-none flex flex-col text-xs py-1 gap-0.5">
             <Paintbrush className="h-4 w-4" />
             <span>Estilo</span>
@@ -67,7 +70,9 @@ export function PropertiesPanel({
             <Box className="h-4 w-4" />
             <span>Layout</span>
           </TabsTrigger>
-          <TabsTrigger value="text" className="data-[state=active]:bg-background data-[state=active]:shadow-none flex flex-col text-xs py-1 gap-0.5">
+          <TabsTrigger
+            disabled={typeof selectedComponent.children !== 'string'}
+           value="text" className="data-[state=active]:bg-background data-[state=active]:shadow-none flex flex-col text-xs py-1 gap-0.5">
             <Type className="h-4 w-4" />
             <span>Texto</span>
           </TabsTrigger>
@@ -75,10 +80,10 @@ export function PropertiesPanel({
             <MousePointer className="h-4 w-4" />
             <span>Eventos</span>
           </TabsTrigger>
-          <TabsTrigger value="advanced" className="data-[state=active]:bg-background data-[state=active]:shadow-none flex flex-col text-xs py-1 gap-0.5">
+          {/* <TabsTrigger value="advanced" className="data-[state=active]:bg-background data-[state=active]:shadow-none flex flex-col text-xs py-1 gap-0.5">
             <Layers className="h-4 w-4" />
             <span>Más</span>
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         <ScrollArea className="flex-1">
@@ -91,34 +96,36 @@ export function PropertiesPanel({
                   <div className="space-y-1">
                     <Label htmlFor="bg-color" className="text-xs">Fondo</Label>
                     <div className="flex">
-                      <div
-                        className="w-6 h-6 border rounded-l"
-                        style={{
-                          backgroundColor: selectedComponent.style.backgroundColor || '#ffffff'
-                        }}
+                      <Input
+                        type="color"
+                        id="backgroundColor"
+                        className="w-12 cursor-pointer p-1"
+                        value={selectedComponent.style.backgroundColor || '#ffffff'}
+                        onChange={(e) => { handlePropertyChange('backgroundColor', e.target.value) }}
                       />
                       <Input
                         id="bg-color"
                         value={selectedComponent.style.backgroundColor || '#ffffff'}
                         onChange={(e) => { handlePropertyChange('backgroundColor', e.target.value) }}
-                        className="rounded-l-none h-6 text-xs"
+                        className="rounded-l-none h-10 text-xs p-1"
                       />
                     </div>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="text-color" className="text-xs">Texto</Label>
                     <div className="flex">
-                      <div
-                        className="w-6 h-6 border rounded-l"
-                        style={{
-                          backgroundColor: selectedComponent.style.color || '#000000'
-                        }}
+                      <Input
+                        type="color"
+                        id="textColor"
+                        className="w-12 cursor-pointer p-1"
+                        value={selectedComponent.style.color || '#000000'}
+                        onChange={(e) => { handlePropertyChange('color', e.target.value) }}
                       />
                       <Input
                         id="text-color"
                         value={selectedComponent.style.color || '#000000'}
                         onChange={(e) => { handlePropertyChange('color', e.target.value) }}
-                        className="rounded-l-none h-6 text-xs"
+                        className="rounded-l-none h-10 text-xs"
                       />
                     </div>
                   </div>
@@ -271,6 +278,16 @@ export function PropertiesPanel({
                     </Select>
                   </div>
                 </div>
+                <div className="space-y-1">
+                  <Label htmlFor="gap" className="text-xs">Espaciado entre elementos</Label>
+                  <Input
+                    id="gap"
+                    value={selectedComponent.style.gap || ''}
+                    onChange={(e) => { handlePropertyChange('gap', e.target.value) }}
+                    className="h-8"
+                    placeholder="0"
+                  />
+                </div>
               </div>
             </div>
 
@@ -328,13 +345,13 @@ export function PropertiesPanel({
             </div>
           </TabsContent>
 
-          <TabsContent value="text" className="py-4 space-y-4 m-0">
+          {typeof selectedComponent.children === 'string' && <TabsContent value="text" className="py-4 space-y-4 m-0">
             <div className="space-y-1">
               <Label htmlFor="content-text" className="text-xs">Contenido</Label>
               <Input
                 id="content-text"
-                value={selectedComponent.style.text || ''}
-                onChange={(e) => { handlePropertyChange('text', e.target.value) }}
+                value={selectedComponent.children ?? ''}
+                onChange={(e) => { handleChildrenChange(e.target.value) }}
                 className="h-8"
               />
             </div>
@@ -420,7 +437,7 @@ export function PropertiesPanel({
                 </Button>
               </div>
             </div>
-          </TabsContent>
+          </TabsContent>}
 
           <TabsContent value="events" className="py-4 m-0">
             <div className="space-y-4">
@@ -459,7 +476,7 @@ export function PropertiesPanel({
 
           <TabsContent value="advanced" className="py-4 m-0">
             <div className="space-y-4">
-              <div className="space-y-1">
+              {/* <div className="space-y-1">
                 <Label htmlFor="custom-class" className="text-xs">Clases CSS</Label>
                 <Input
                   id="custom-class"
@@ -479,7 +496,7 @@ export function PropertiesPanel({
                   className="h-8"
                   placeholder="element-id"
                 />
-              </div>
+              </div> */}
 
               <div className="space-y-1">
                 <Label htmlFor="custom-styles" className="text-xs">Estilos personalizados</Label>

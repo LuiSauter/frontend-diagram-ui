@@ -95,3 +95,20 @@ export function FormatDateMMMM(dateString: string): string {
   const date = new Date(dateString)
   return date.toLocaleDateString('es-BO', { month: 'long' })
 }
+
+// extraer la fecha de esta cadena de texto "28/04/2025 09:17 a. m." para obtenerlo en tipo Date
+export function extractDateTime(dateString: string): Date {
+  const [datePart, timePart] = dateString.split(' ')
+  const [day, month, year] = datePart.split('/')
+  const [time, period] = timePart.split(' ')
+  const [hours, minutes] = time.split(':')
+  let formattedHours = parseInt(hours, 10)
+  if (period === 'p. m.' && formattedHours !== 12) {
+    formattedHours += 12
+  } else if (period === 'a. m.' && formattedHours === 12) {
+    formattedHours = 0
+  }
+
+  const formattedDate = new Date(`${year}/${month}/${day} ${formattedHours}:${minutes}:00`)
+  return formattedDate
+}

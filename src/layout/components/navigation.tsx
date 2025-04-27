@@ -23,6 +23,7 @@ import { createWorkspace, setProjectOpen, setSheetOpen } from '@/redux/slices/wo
 import { type RootState } from '@/redux/store'
 import { type SheetItem } from '@/modules/dashboard/models/sheets.model'
 import { ComponentPanel } from '@/modules/dashboard/components/component-panel'
+import { socket } from '@/config/socket'
 
 const formSchema = z.object({
   name: z.string().min(1).max(50)
@@ -46,11 +47,12 @@ function Navigation() {
   const [projectState, setProjectState] = useState([] as any[])
   const [isCreateSheet, setIsCreateSheet] = useState(false)
   const [selectProjectId, setSelectProjectId] = useState('')
+  // const [workspace, setWorkspace] = useState({} as WorkspaceItem)
 
-  const { resource: workspace, mutate } = useGetResource<WorkspaceItem>({ endpoint: `${ENDPOINTS.WORKSPACE}/${id}` })
+  const { resource: workspaceFetchRes } = useGetResource<WorkspaceItem>({ endpoint: `${ENDPOINTS.WORKSPACE}/${id}` })
   const { createResource: createProject } = useCreateResource({ endpoint: `${ENDPOINTS.WORKSPACE}/${id}/project` })
   const { createResource: createSheet } = useCreateResource({ endpoint: `${ENDPOINTS.WORKSPACE}/project/sheet` })
-
+  const { createResource: startSession } = useCreateResource({ endpoint: `${ENDPOINTS.WORKSPACE}/${id}/sheet/start-session` })
   const dispatch = useDispatch()
 
   const formProject = useForm<z.infer<typeof formSchema>>({
@@ -71,7 +73,7 @@ function Navigation() {
     createProject({ name: data.name })
       .then(() => {
         setIsCreateProject(false)
-        void mutate()
+        // void mutate()
         formProject.reset()
       })
       .catch((err) => {
@@ -87,7 +89,7 @@ function Navigation() {
     createSheet({ name: data.name, projectId: selectProjectId })
       .then(() => {
         setIsCreateSheet(false)
-        void mutate()
+        // void mutate()
         formSheet.reset()
       })
       .catch((err) => {
@@ -118,12 +120,12 @@ function Navigation() {
   let subscribe2 = true
   useEffect(() => {
     if (subscribe2) {
-      if (workspace?.projects && workspace.projects.length > 0) {
-        dispatch(createWorkspace(workspace))
+      if (workspaceFetchRes?.projects && workspaceFetchRes.projects.length > 0) {
+        dispatch(createWorkspace(workspaceFetchRes))
 
         setProjectState(
           // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          workspace.projects.map((p: any) => ({
+          workspaceFetchRes.projects.map((p: any) => ({
             name: p.name,
             id: p.id,
             sheets: p.sheets,
@@ -138,13 +140,44 @@ function Navigation() {
     return () => {
       subscribe2 = false
     }
-  }, [workspace, projectId, sheetId])
+  }, [workspaceFetchRes, projectId, sheetId])
 
   const handleSelectedSheet = (sheet: SheetItem, project: any) => {
     dispatch(setSheetOpen(sheet.id))
     dispatch(setProjectOpen(project.id))
+    if (sheet.id === sheetId) {
+      return
+    }
+    void startSession({ sheetId: sheet.id, lastSheetId: sheetId ?? sheet.id })
     navigate(`/workspace/${id}/${project.id}/${sheet.id}`)
+    // navegar refrescando la página
+    // window.location.href = `/workspace/${id}/${project.id}/${sheet.id}`
   }
+
+  useEffect(() => {
+    socket.on(`workspace/${id}`, (data) => {
+      if (data?.projects && data.projects.length > 0) {
+        dispatch(createWorkspace(data))
+
+        setProjectState(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+          data.projects.map((p: any) => ({
+            name: p.name,
+            id: p.id,
+            sheets: p.sheets,
+            isOpen: projectId ? (projectId === p.id) : false,
+            isCreate: false,
+            isFocus: false,
+            isSelected: false
+          }))
+        )
+      }
+    })
+
+    return () => {
+      socket.off(`workspace/${id}`)
+    }
+  }, [socket])
 
   return (
     <nav className="flex h-full flex-col w-full justify-between overflow-hi dden">
@@ -356,7 +389,6 @@ function Navigation() {
                                         'h-7 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border border-sky-600 dark:border-sky-600 bg-transparent dark:bg-transparent px-1'
                                       }
                                       onBlur={() => {
-                                        console.log('blur')
                                         formSheet.reset()
                                         setProjectState((prev) =>
                                           prev.map((p) =>
@@ -410,7 +442,7 @@ function Navigation() {
           </TabsContent>
           <TabsContent value="components">
             <ComponentPanel
-              onDragComponent={() => {}}
+              onDragComponent={() => { }}
             />
           </TabsContent>
         </Tabs>
