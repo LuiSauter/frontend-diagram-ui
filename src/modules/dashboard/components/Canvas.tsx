@@ -93,26 +93,27 @@ export function Canvas({
           break
         case 'sw':
           newWidth = Math.max(20, resizeStart.width - dx)
-          newPosition.x = element.position.x + (resizeStart.width - newWidth)
+          newHeight = Math.max(20, resizeStart.height + dy)
+          newPosition.x = e.clientX - canvasRef.current.getBoundingClientRect().left - offset.x
           break
         case 'w':
           newWidth = Math.max(20, resizeStart.width - dx)
-          newPosition.x = element.position.x + (resizeStart.width - newWidth)
+          newPosition.x = e.clientX - canvasRef.current.getBoundingClientRect().left - offset.x
           break
         case 'nw':
           newWidth = Math.max(20, resizeStart.width - dx)
           newHeight = Math.max(20, resizeStart.height - dy)
-          newPosition.x = element.position.x + (resizeStart.width - newWidth)
-          newPosition.y = element.position.y + (resizeStart.height - newHeight)
+          newPosition.x = e.clientX - canvasRef.current.getBoundingClientRect().left - offset.x
+          newPosition.y = e.clientY - canvasRef.current.getBoundingClientRect().top - offset.y
           break
         case 'n':
           newHeight = Math.max(20, resizeStart.height - dy)
-          newPosition.y = element.position.y + (resizeStart.height - newHeight)
+          newPosition.y = e.clientY - canvasRef.current.getBoundingClientRect().top - offset.y
           break
         case 'ne':
           newWidth = Math.max(20, resizeStart.width + dx)
           newHeight = Math.max(20, resizeStart.height - dy)
-          newPosition.y = element.position.y + (resizeStart.height - newHeight)
+          newPosition.y = e.clientY - canvasRef.current.getBoundingClientRect().top - offset.y
           break
       }
 
@@ -120,7 +121,7 @@ export function Canvas({
         onMoveElement(resizing.elementId, newPosition)
       }
 
-      console.log({ newPosition, newWidth, newHeight })
+      // console.log({ newPosition, newWidth, newHeight })
       onResizeElement(resizing.elementId, { width: newWidth, height: newHeight })
     }
   }
@@ -226,12 +227,6 @@ export function Canvas({
 
     setResizing({ elementId, handle })
     setResizeStart({
-      x: e.clientX,
-      y: e.clientY,
-      width: element.style.width,
-      height: element.style.height
-    })
-    console.log({
       x: e.clientX,
       y: e.clientY,
       width: element.style.width,
@@ -349,7 +344,7 @@ export function Canvas({
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-9 w-9 bg-white dark:bg-gray-800 shadow-sm text-red-500"
+                  className="h-9 w-9 shadow-sm text-red-500"
                   onClick={() => { onElementDelete(selectedElement) }}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -470,7 +465,7 @@ export function Canvas({
                     style: {
                       ...child.style, width: child.style?.width ? `${child.style.width}${child.style.widthUnit || 'px'}` : 'auto', height: child.style?.height ? `${child.style.height}${child.style.heightUnit || 'px'}` : 'auto'
                     },
-                    className: `component-hover ${selectedElement === child.id ? 'ring-2 ring-sky-600' : ''}`,
+                    className: `component-hover hover:ring-2 hover:ring-sky-300 ${selectedElement === child.id ? 'ring-2 ring-sky-600' : ''}`,
                     onClick: (e: React.MouseEvent) => {
                       e.stopPropagation()
                       if (activeTool === 'select') {
@@ -485,7 +480,7 @@ export function Canvas({
                     ? generateElement(element.type, {
                       key: element.id,
                       id: element.id,
-                      className: `absolute component-hover ${selectedElement === element.id ? 'ring-2 ring-sky-600' : ''}`,
+                      className: `absolute component-hover hover:ring-2 hover:ring-sky-300 ${selectedElement === element.id ? 'ring-2 ring-sky-600' : ''}`,
                       style: {
                         ...element.style,
                         width: element.style?.width ? `${element.style.width}${element.style.widthUnit || 'px'}` : 'auto',
@@ -510,7 +505,7 @@ export function Canvas({
                         width: child.style?.width ? `${child.style.width}${child.style.widthUnit || 'px'}` : 'auto',
                         height: child.style?.height ? `${child.style.height}${child.style.heightUnit || 'px'}` : 'auto'
                       },
-                      className: `component-hover ${selectedElement === child.id ? 'ring-2 ring-sky-600' : ''}`,
+                      className: `component-hover hover:ring-2 hover:ring-sky-300 ${selectedElement === child.id ? 'ring-2 ring-sky-600' : ''}`,
                       onClick: (e: React.MouseEvent) => {
                         e.stopPropagation()
                         if (activeTool === 'select') {
@@ -530,7 +525,7 @@ export function Canvas({
                     : generateElement(element.type, {
                       key: element.id,
                       id: element.id,
-                      className: `absolute component-hover ${selectedElement === element.id ? 'ring-2 ring-sky-600' : ''}`,
+                      className: `absolute component-hover hover:ring-2 hover:ring-sky-300 ${selectedElement === element.id ? 'ring-2 ring-sky-600' : ''}`,
                       style: {
                         ...element.style,
                         width: element.style?.width ? `${element.style.width}${element.style.widthUnit || 'px'}` : 'auto',

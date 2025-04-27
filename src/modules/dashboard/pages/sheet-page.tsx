@@ -232,6 +232,7 @@ const SheetPage = () => {
       name: component.name,
       properties: component.properties,
       style: component.style,
+      isBeingDragged: false,
       children: component.children
         ? component.children.map((child: any) => {
           if (typeof child === 'string') {
@@ -242,6 +243,7 @@ const SheetPage = () => {
             id: `${child.id}-${Date.now()}`,
             type: child.element,
             name: child.name,
+            isBeingDragged: false,
             position: { x: 0, y: 0 },
             properties: child.properties,
             style: child.style,
@@ -268,7 +270,7 @@ const SheetPage = () => {
   }
 
   const handleResizeElement = (elementId: string, newSize: { width: number, height: number }) => {
-    console.log(elementId, newSize)
+    // console.log(elementId, newSize)
     setCanvasElements(elements =>
       elements.map(element =>
         element.id === elementId
@@ -330,8 +332,18 @@ const SheetPage = () => {
   }
 
   const handleElementDelete = (elementId: string) => {
-    console.log(elementId)
-    setCanvasElements(elements => elements.filter(element => element.id !== elementId))
+    setCanvasElements(elements =>
+      elements.map(element => {
+        if (element.children) {
+          return {
+            ...element,
+            children: element.children.filter(child => child.id !== elementId)
+          }
+        }
+        return element
+      })
+    )
+
     if (selectedElement === elementId) {
       setSelectedElement(null)
     }
