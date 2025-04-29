@@ -447,38 +447,6 @@ export function Canvas({
       baseProps.onDragLeave = (e: React.DragEvent) => { // esto es cuando se sale el elemento arrastrado de otro
         e.currentTarget.classList.remove('drop-target')
       }
-
-      // baseProps.onDrop = (e: React.DragEvent) => { // esto es cuando se suelta el elemento arrastrado sobre otro
-      //   e.preventDefault()
-      //   e.currentTarget.classList.remove('drop-target')
-      //   if (element.type === 'main') return
-      //   const dataTransfer = e.dataTransfer.getData('element-id')
-      //   if (!dataTransfer) return
-      //   const ele = e.target as HTMLDivElement
-      //   const canvasRect = canvasRef.current?.getBoundingClientRect()
-
-      //   if (!canvasRect) return
-      //   const elementTransfer = JSON.parse(dataTransfer)
-
-      //   const x = (e.clientX - canvasRect.left - offset.x) / zoom
-      //   const y = (e.clientY - canvasRect.top - offset.y) / zoom
-
-      //   if (elementTransfer && elementTransfer.id !== element.id) {
-      //     const comp = {
-      //       children: elementTransfer.children,
-      //       element: elementTransfer.type,
-      //       id: elementTransfer.type,
-      //       name: elementTransfer.name,
-      //       preview: <></>,
-      //       properties: elementTransfer.properties,
-      //       style: elementTransfer.style
-      //     }
-      //     console.log(comp, ele.id)
-      //     // onElementDelete(elementTransfer.id as string)
-      //     // onDropComponent(comp, { x: 0, y: 0 }, ele.id)
-      //     // eliminar el elemento arrastrado
-      //   }
-      // }
     }
 
     let childrenContent: React.ReactNode[] | string | null = null
